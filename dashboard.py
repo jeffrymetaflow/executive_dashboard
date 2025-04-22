@@ -9,6 +9,7 @@ st.title("\U0001F4CA Unified Executive Dashboard")
 st.sidebar.header("\U0001F4B0 High-Level Inputs")
 revenue = st.sidebar.number_input("Annual Revenue ($M)", min_value=1, value=100) * 1_000_000
 comparison_mode = st.sidebar.radio("Comparison Mode", ["Annual", "Quarterly"])
+variance_threshold = st.sidebar.slider("Variance Threshold %", min_value=0, max_value=100, value=20)
 
 # Simulated multi-period data
 data = {
@@ -41,18 +42,32 @@ col1.metric("Total IT Spend", f"${total_spend:,.0f}")
 col2.metric("IT Spend / Revenue", f"{it_ratio:.2f}%")
 col3.metric("Revenue at Risk (Protected)", f"{sum([v['Revenue Protected %'] for v in risk_impact.values()])}%")
 
-# --- Multi-Period Line Chart ---
+# --- Multi-Period Line Chart with Variance Highlighting ---
 st.subheader("\U0001F4C9 IT Spend Trends by Category")
 fig_trend = go.Figure()
+thresh = variance_threshold / 100
+high_variance_categories = []
 for cat in list(data.keys())[1:]:
+    delta = abs((df[cat].iloc[-1] - df[cat].iloc[-2]) / df[cat].iloc[-2])
+    color = 'firebrick' if delta > thresh else 'dodgerblue'
+    if delta > thresh:
+        high_variance_categories.append((cat, f"{delta*100:.1f}%"))
     fig_trend.add_trace(go.Scatter(
         x=df["Period"],
         y=df[cat],
         mode='lines+markers',
-        name=cat
+        name=cat,
+        line=dict(color=color)
     ))
 fig_trend.update_layout(yaxis_title="Spend ($)", height=450)
 st.plotly_chart(fig_trend, use_container_width=True)
+
+# --- Variance Alert Box ---
+if high_variance_categories:
+    st.warning("**High Variance Categories (>{}%)**:\n{}".format(
+        variance_threshold,
+        "\n".join([f"- {cat}: {val}" for cat, val in high_variance_categories])
+    ))
 
 # --- ROPR Line Chart ---
 st.subheader("\U0001F4A1 Risk-Related ROI (ROPR)")
@@ -86,5 +101,7 @@ This executive dashboard provides a high-level view of IT financials, risk-adjus
 - Understand where IT spend is concentrated
 - Track ROI on cybersecurity and continuity investments
 - View trending IT financial data across multiple periods
+- Highlight significant spend shifts (configurable threshold)
+- Automatically surface categories exceeding variance limits
 - Align technology strategy with margin and mission protection
 """)
