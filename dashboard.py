@@ -8,16 +8,23 @@ st.title("\U0001F4CA Unified Executive Dashboard")
 # --- Sample Inputs (would eventually link to live modules) ---
 st.sidebar.header("\U0001F4B0 High-Level Inputs")
 revenue = st.sidebar.number_input("Annual Revenue ($M)", min_value=1, value=100) * 1_000_000
+comparison_mode = st.sidebar.radio("Comparison Mode", ["Annual", "Quarterly"])
 
-category_data = {
-    "Hardware": 320_000,
-    "Software": 280_000,
-    "Personnel": 500_000,
-    "Maintenance": 160_000,
-    "Telecom": 120_000,
-    "Cybersecurity": 220_000,
-    "BC/DR": 140_000
+# Simulated multi-period data
+data = {
+    "Period": [],
+    "Hardware": [], "Software": [], "Personnel": [], "Maintenance": [], "Telecom": [], "Cybersecurity": [], "BC/DR": []
 }
+periods = ["2023 Q1", "2023 Q2", "2023 Q3", "2023 Q4", "2024 Q1", "2024 Q2"] if comparison_mode == "Quarterly" else ["2022", "2023", "2024"]
+
+import random
+for period in periods:
+    data["Period"].append(period)
+    for cat in list(data.keys())[1:]:
+        data[cat].append(random.randint(100, 500) * 1000)
+
+df = pd.DataFrame(data)
+category_data = df.iloc[-1, 1:].to_dict()
 
 risk_impact = {
     "Cybersecurity": {"Revenue Protected %": 25, "ROPR": 6.5},
@@ -34,20 +41,20 @@ col1.metric("Total IT Spend", f"${total_spend:,.0f}")
 col2.metric("IT Spend / Revenue", f"{it_ratio:.2f}%")
 col3.metric("Revenue at Risk (Protected)", f"{sum([v['Revenue Protected %'] for v in risk_impact.values()])}%")
 
-# --- Bar Chart: IT Spend Breakdown ---
-st.subheader("\U0001F4C9 IT Spend Breakdown by Category")
-spend_df = pd.DataFrame.from_dict(category_data, orient='index', columns=['Spend ($)']).reset_index()
-spend_df.columns = ['Category', 'Spend ($)']
-fig1 = go.Figure(go.Bar(
-    x=spend_df['Category'],
-    y=spend_df['Spend ($)'],
-    marker_color='lightskyblue',
-    text=spend_df['Spend ($)'].apply(lambda x: f"${x:,.0f}"),
-    textposition='auto'))
-fig1.update_layout(yaxis_title='Spend ($)', height=400)
-st.plotly_chart(fig1, use_container_width=True)
+# --- Multi-Period Line Chart ---
+st.subheader("\U0001F4C9 IT Spend Trends by Category")
+fig_trend = go.Figure()
+for cat in list(data.keys())[1:]:
+    fig_trend.add_trace(go.Scatter(
+        x=df["Period"],
+        y=df[cat],
+        mode='lines+markers',
+        name=cat
+    ))
+fig_trend.update_layout(yaxis_title="Spend ($)", height=450)
+st.plotly_chart(fig_trend, use_container_width=True)
 
-# --- Line Chart: Risk Prevention ROI ---
+# --- ROPR Line Chart ---
 st.subheader("\U0001F4A1 Risk-Related ROI (ROPR)")
 ropr_df = pd.DataFrame([(k, v['ROPR']) for k, v in risk_impact.items()], columns=['Category', 'ROPR'])
 fig2 = go.Figure(go.Scatter(
@@ -78,5 +85,6 @@ st.markdown("""
 This executive dashboard provides a high-level view of IT financials, risk-adjusted investments, and revenue protection. It enables leadership to:
 - Understand where IT spend is concentrated
 - Track ROI on cybersecurity and continuity investments
+- View trending IT financial data across multiple periods
 - Align technology strategy with margin and mission protection
 """)
